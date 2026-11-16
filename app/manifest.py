@@ -38,9 +38,15 @@ def digest_of(resources: Iterable[dict]) -> str:
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
-def batch_key(sites: Iterable[str], digest: str, rule_version: str) -> str:
-    """批次键 = 站点集合 + 输入摘要 + 规则版本；相同即同一批次，重跑直接复用。"""
-    stem = "|".join([",".join(sorted(sites)), digest, rule_version])
+def batch_key(sites: Iterable[str], digest: str, rule_version: str,
+              responsibility_version: str = "none") -> str:
+    """批次键 = 站点集合 + 输入摘要 + 规则版本 + 责任版本；相同即同一批次。
+
+    责任账变化（责任版本变化）后，即便输入字节没变也会生成新批次，
+    新批次按新责任出账；责任账不动时重跑仍命中旧键，幂等复用。
+    """
+    stem = "|".join([",".join(sorted(sites)), digest, rule_version,
+                     responsibility_version])
     return hashlib.sha256(stem.encode("utf-8")).hexdigest()
 
 
@@ -90,6 +96,9 @@ def build_manifest(run: dict) -> dict:
         "totals": run.get("totals", {}),
         "reason_counts": run.get("reason_counts", []),
         "replay": run.get("replay", {}),
+        "responsibility_version": (run.get("responsibility") or {}).get("version", "none"),
+        "responsibility_as_of": (run.get("responsibility") or {}).get("as_of", ""),
+        "responsibility_applied": run.get("responsibility_applied", []),
     }
 
 

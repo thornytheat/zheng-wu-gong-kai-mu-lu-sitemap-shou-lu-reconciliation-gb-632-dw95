@@ -28,9 +28,10 @@ def test_defects_sorted_by_priority(run):
 def test_csv_header_and_bom(run):
     text = defect_service.defects_csv(run)
     assert text.startswith("\ufeff")
-    header = text.lstrip("\ufeff").splitlines()[0]
-    assert header.split(",")[:4] == ["缺陷号", "站点", "分类", "严重度"]
-    assert header.split(",")[-1] == "原始写法"
+    header = text.lstrip("\ufeff").splitlines()[0].split(",")
+    assert header[:5] == ["缺陷号", "站点", "责任站", "责任依据", "分类"]
+    assert header[-1] == "原始写法"
+    assert "责任站" in header and "责任依据" in header
 
 
 def test_csv_rows_follow_filter(run):

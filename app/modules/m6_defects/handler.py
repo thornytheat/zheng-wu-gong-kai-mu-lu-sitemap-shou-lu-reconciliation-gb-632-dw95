@@ -20,17 +20,17 @@ def _run(ctx: Ctx, run_id: str | None) -> dict:
 
 @router.get("/api/defects")
 def api_defects(run_id: str | None = None, site: str | None = None,
-                category: str | None = None,
+                category: str | None = None, responsible_site: str | None = None,
                 ctx: Ctx = Depends(get_ctx)) -> dict:
-    return service.list_defects(_run(ctx, run_id), site, category)
+    return service.list_defects(_run(ctx, run_id), site, category, responsible_site)
 
 
 @router.get("/api/defects.csv")
 def api_defects_csv(run_id: str | None = None, site: str | None = None,
-                    category: str | None = None,
+                    category: str | None = None, responsible_site: str | None = None,
                     ctx: Ctx = Depends(get_ctx)) -> Response:
     run = _run(ctx, run_id)
-    body = service.defects_csv(run, site, category)
+    body = service.defects_csv(run, site, category, responsible_site)
     return Response(content=body, media_type="text/csv; charset=utf-8",
                     headers={"content-disposition":
                              f'attachment; filename="{service.defects_filename(run)}"'})
@@ -56,15 +56,17 @@ def api_manifest(run_id: str | None = None, ctx: Ctx = Depends(get_ctx)) -> Resp
 
 @router.get("/defects")
 def page_defects(request: Request, run_id: str | None = None, site: str | None = None,
-                 category: str | None = None):
+                 category: str | None = None,
+                 responsible_site: str | None = None):
     ctx: Ctx = get_ctx(request)
     run = ctx.current_run(run_id)
     data = {"rows": [], "count": 0, "total": 0,
             "summary": {"total": 0, "by_category": {}, "by_site": {}},
             "categories": reasons.CATEGORIES, "explain": {}}
     if run is not None:
-        data = service.list_defects(run, site, category)
+        data = service.list_defects(run, site, category, responsible_site)
     return render(request, "defects.html", active="defects", data=data,
                   rows=data["rows"], site=site or "", category=category or "",
+                  responsible_site=responsible_site or "",
                   categories=reasons.CATEGORIES, explain=data["explain"],
                   summary=data["summary"])

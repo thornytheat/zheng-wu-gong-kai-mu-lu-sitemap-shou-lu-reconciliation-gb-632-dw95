@@ -25,6 +25,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.pylibs/
+data/
+*.sqlite
 target/
 *.o
 *.obj

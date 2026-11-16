@@ -11,12 +11,16 @@ from . import csv_out, defect
 
 
 def list_defects(run: dict, site: str | None = None,
-                 category: str | None = None) -> dict:
+                 category: str | None = None,
+                 responsible_site: str | None = None) -> dict:
     if category and category not in reasons.CATEGORIES:
         raise errors.BadRequest(f"未知分类 {category}", code="E_BAD_CATEGORY")
     rows = list(run.get("defects") or [])
     if site:
         rows = [row for row in rows if row["site"] == site]
+    if responsible_site:
+        rows = [row for row in rows
+                if row.get("responsible_site", row["site"]) == responsible_site]
     if category:
         rows = [row for row in rows if row["category"] == category]
     return {"run_id": run["run_id"], "total": len(run.get("defects") or []),
@@ -35,8 +39,9 @@ def summarize(defects: list[dict]) -> dict:
     return defect.summary(defects)
 
 
-def defects_csv(run: dict, site: str | None = None, category: str | None = None) -> str:
-    rows = list_defects(run, site, category)["rows"]
+def defects_csv(run: dict, site: str | None = None, category: str | None = None,
+                responsible_site: str | None = None) -> str:
+    rows = list_defects(run, site, category, responsible_site)["rows"]
     return csv_out.defects_csv(rows, defect.severity_of)
 
 

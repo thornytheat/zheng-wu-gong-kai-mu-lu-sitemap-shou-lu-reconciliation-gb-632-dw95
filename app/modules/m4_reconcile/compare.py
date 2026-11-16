@@ -71,3 +71,17 @@ def site_breakdown(probes: list[dict]) -> list[dict]:
         slot["dead"] += 1 if state_of(row) == "dead" else 0
         slot["ok"] += 1 if row["category"] == "OK" else 0
     return [sites[key] for key in sorted(sites)]
+
+
+def responsibility_breakdown(probes: list[dict]) -> list[dict]:
+    """按责任站归集（批次冻结快照）；未带责任字段的旧批次回退来源站。"""
+    sites: dict[str, dict] = {}
+    for row in probes:
+        code = row.get("responsible_site") or row["site"]
+        slot = sites.setdefault(code, {"site": code, "total": 0,
+                                       "ok": 0, "findings": 0, "dead": 0})
+        slot["total"] += 1
+        slot["findings"] += 0 if row["category"] == "OK" else 1
+        slot["dead"] += 1 if state_of(row) == "dead" else 0
+        slot["ok"] += 1 if row["category"] == "OK" else 0
+    return [sites[key] for key in sorted(sites)]

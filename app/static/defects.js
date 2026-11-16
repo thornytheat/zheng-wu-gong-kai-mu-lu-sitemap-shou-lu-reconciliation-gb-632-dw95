@@ -7,6 +7,7 @@
 
   const filters = document.querySelector(".filters select#category");
   const siteSelect = document.querySelector(".filters select#site");
+  const respSelect = document.querySelector(".filters select#responsible_site");
   const exportLink = document.querySelector('a[href^="/api/defects.csv"]');
   if (!exportLink) return;
 
@@ -14,11 +15,13 @@
     const params = new URLSearchParams();
     if (siteSelect && siteSelect.value) params.set("site", siteSelect.value);
     if (filters && filters.value) params.set("category", filters.value);
+    if (respSelect && respSelect.value) params.set("responsible_site", respSelect.value);
     const query = params.toString();
     exportLink.setAttribute("href", "/api/defects.csv" + (query ? "?" + query : ""));
   };
 
   if (siteSelect) siteSelect.addEventListener("change", refresh);
   if (filters) filters.addEventListener("change", refresh);
+  if (respSelect) respSelect.addEventListener("change", refresh);
   refresh();
 })();

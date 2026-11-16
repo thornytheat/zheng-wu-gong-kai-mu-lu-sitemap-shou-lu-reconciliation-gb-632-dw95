@@ -14,6 +14,8 @@
 - 缺陷单：按分类筛选，CSV（含原始写法）与运行清单 JSON 导出，可打印
 - 批次：批次键幂等重跑、阶段可单独跑、可续跑
 - 变更监测：与上次巡检比新增死链 / 已修复 / 新恶化，按站点看趋势，导回归清单与快照
+- 地址责任账：按地址保存带生效时点的责任变更链，旧账只读、新账归新站，切换失败保留旧账，
+  重跑续跑不重复迁移，页面与导出显示同一责任版本
 
 ## 模块
 
@@ -26,9 +28,10 @@
 | M5 巡检批次 | 批次历史、停止点、续跑 | `GET /api/batches` `POST /api/batches/{run_id}/resume` |
 | M6 缺陷单 | 缺陷筛选、CSV、运行清单 | `GET /api/defects` `GET /api/defects.csv` `GET /api/export/manifest.json` |
 | M7 变更监测 | 两次巡检对比、站点趋势、回归清单、快照导出 | `GET /api/watch` `GET /api/watch/regressions.csv` `GET /api/watch/snapshot.json` |
+| M8 地址责任账 | 责任变更登记、到期迁移、时点归属试算 | `POST /api/responsibility/changes` `POST /api/responsibility/apply` `GET /api/responsibility/resolve` `GET /responsibility` |
 
 页面：`/` 巡检运行、`/sites` 站点与目录、`/reach` 可达性明细、`/reconcile` 对账缺陷、
-`/batches` 批次历史、`/defects` 缺陷单、`/watch` 变更监测。
+`/batches` 批次历史、`/defects` 缺陷单、`/watch` 变更监测、`/responsibility` 地址责任账。
 
 ## 核心规则
 
@@ -41,6 +44,9 @@
    分成 9 格固定表；上次死链、本次能打开但要跳转的记「已改善」。
 5. 只在单侧出现的地址先看补全基准：同一相对写法按目录页地址与 sitemap 地址补全出
    两个键时记「基准不同」，不算新增也不算消失。
+6. 地址责任账（M8）：责任站按批次开始时点从变更链解析一次并快照，历史批次冻结不重算；
+   `pending`/`failed` 变更不参与归属，切换失败保留旧账；责任版本纳入批次键，
+   责任账一变同输入重跑即新批次，责任账不动则幂等复用。设计见 `docs/RESPONSIBILITY-LEDGER.md`。
 
 ## 规则与已知不覆盖
 
@@ -77,21 +83,23 @@ SAMPLE_SITE_BASE=http://127.0.0.1:19201 SITEMAPAUDIT_DB=/tmp/audit.sqlite \
 3. `/reach` 按分类过滤，点开 `跳转链` 能看到两跳的旧路径。
 4. `/reconcile` 看四账与三向交叉表；`/defects` 导出 CSV 与运行清单并打印。
 5. `/watch` 看与上季度快照的差异，导出回归清单与本次快照。
+6. `/responsibility` 登记一条地址责任变更（如市府门户 → 政务服务局），执行到期迁移后
+   再触发巡检：新批次缺陷归新责任站，历史批次仍保留原站；缺陷 CSV 与页面显示同一责任版本。
 
 ## 测试
 
 ```bash
-pytest -q          # 85 个测试函数 / 87 个用例
+pytest -q          # 107 个测试函数 / 107 个用例
 python3 ~/.dsh/skills/pr-batch-simple/scripts/check_project.py . --scale medium
 ```
 
 ## 目录
 
 ```
-app/                     平台层 + 七个功能模块
-app/templates/           8 个页面（base + 7）
-app/static/              theme.css layout.css components.css + 4 个脚本
-docs/                    DEPTH.md DATA-DICTIONARY.md
+app/                     平台层 + 八个功能模块
+app/templates/           9 个页面（base + 8）
+app/static/              theme.css layout.css components.css + 5 个脚本
+docs/                    DEPTH.md DATA-DICTIONARY.md RESPONSIBILITY-LEDGER.md
 sample_site/             三站目录页 + sitemap + serve.py（样例站服务）
 sample_data/degenerate/  空态与截断样例
 sample_data/watch/       上一季度快照（变更对比的样例基准）

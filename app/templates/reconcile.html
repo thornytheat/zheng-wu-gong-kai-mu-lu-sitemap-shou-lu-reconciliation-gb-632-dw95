@@ -95,7 +95,7 @@
 </section>
 
 <section class="panel">
-  <header><h2>站点分布</h2><span>{{ by_site | length }} 站</span></header>
+  <header><h2>站点分布（来源站）</h2><span>{{ by_site | length }} 站</span></header>
   <div class="body scroll">
     <table class="grid">
       <thead><tr><th>站点</th><th class="num">地址</th><th class="num">对平</th><th class="num">缺陷</th><th class="num">死链</th></tr></thead>
@@ -113,6 +113,28 @@
     </table>
   </div>
 </section>
+
+{% if by_responsible_site %}
+<section class="panel">
+  <header><h2>责任站分布（按责任版本冻结）</h2><span>责任版本 {{ run.responsibility.version if (run and run.responsibility) else "none" }}</span></header>
+  <div class="body scroll">
+    <table class="grid">
+      <thead><tr><th>责任站</th><th class="num">地址</th><th class="num">对平</th><th class="num">缺陷</th><th class="num">死链</th></tr></thead>
+      <tbody>
+      {% for row in by_responsible_site %}
+        <tr>
+          <td>{{ row.site }}</td>
+          <td class="num">{{ row.total | num }}</td>
+          <td class="num">{{ row.ok | num }}</td>
+          <td class="num">{{ row.findings | num }}</td>
+          <td class="num">{{ row.dead | num }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 {% else %}
 <section class="panel"><div class="body"><p class="empty">还没有巡检记录。</p></div></section>
 {% endif %}

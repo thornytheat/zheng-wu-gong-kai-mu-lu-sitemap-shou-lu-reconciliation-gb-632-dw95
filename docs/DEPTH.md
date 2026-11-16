@@ -15,6 +15,7 @@
 | M5 巡检批次 | 查历史、停在中间、续跑 | GET /api/batches | `app/modules/m5_batches/service.py` `app/modules/m5_batches/state.py` `app/modules/m5_batches/history.py` | `tests/test_batches.py` |
 | M6 缺陷单 | 按分类筛缺陷、导出 CSV 与清单 | GET /api/defects | `app/modules/m6_defects/defect.py` `app/modules/m6_defects/csv_out.py` `app/modules/m6_defects/service.py` | `tests/test_defects.py` |
 | M7 变更监测 | 与上次对比、按站点看趋势、导回归清单 | GET /api/watch | `app/modules/m7_watch/diff.py` `app/modules/m7_watch/chain.py` `app/modules/m7_watch/service.py` | `tests/test_watch.py` |
+| M8 地址责任账 | 登记带生效时点的责任变更、到期迁移、时点试算 | POST /api/responsibility/changes `GET /responsibility` | `app/modules/m8_responsibility/ledger.py` `app/modules/m8_responsibility/service.py` | `tests/test_responsibility.py` |
 
 阶段编排在 `app/modules/m5_batches/service.py`：采信（M1）→ 规范化与探测（M2+M3）→ 对账（M4）→ 缺陷（M6）。
 停止点 `stop_after=crawl|probe` 可让每个阶段单独跑；`POST /api/batches/{run_id}/resume` 从剩余阶段接着跑，
@@ -39,6 +40,10 @@
 | TRAP-21 | 只查 sitemap→目录 一个方向 | 漏掉「目录有、sitemap 无」那一半 | 双向核验：ONLY_IN_CATALOG 与 ONLY_IN_SITEMAP_DEAD 同时输出 | `app/modules/m4_reconcile/totals.py` | `tests/test_reconcile.py::test_both_directions_reported` |
 | TRAP-27 | 301 环与「超过上限的长链」混为一谈 | 都记跳转成环；同一环从多个入口探测各报一次，清单里同环出现多行 | 未回到已访问地址的超限链记 `CHAIN_LIMIT`；环按环内成员集合合并，多入口只报一次 | `app/modules/m7_watch/chain.py` | `tests/test_watch.py::test_trap27_cycle_grouped_once_and_long_chain_is_not_cycle` |
 | TRAP-28 | 同一相对写法分别按目录页地址与 sitemap 地址补全，得到两个键 | 算成一条新增死链加一条消失地址，回归清单出现假新增 | 两侧原始写法相同、补全基准不同的先配成 `BASIS_SHIFT`「基准不同」，不进增删 | `app/modules/m7_watch/diff.py` | `tests/test_watch.py::test_trap28_relative_base_shift_is_basis_not_add_and_remove` |
+| TRAP-31 | 地址下季度换站维护，按当前归属重算历史 | 切换前发布的缺陷整笔换站，原整改记录失去承接 | 责任站按批次开始时点解析并快照进 run，历史批次冻结不重算；来源站字段保留 | `app/modules/m8_responsibility/ledger.py` `app/modules/m5_batches/service.py` | `tests/test_responsibility.py::test_old_ledger_frozen_new_observations_follow` |
+| TRAP-32 | 责任锁死首次归属 | 切换后的新观测记不到维护部门 | 带生效时点的变更链，到期后新批次按新责任站出账，同址仍一条 key 不拆两笔 | `app/modules/m8_responsibility/ledger.py` | `tests/test_responsibility.py::test_change_chain_is_temporal_and_keeps_single_key` |
+| TRAP-33 | 切换执行失败 | 半成品责任账，部分地址丢失归属 | 迁移器单事务处理，单条失败置 failed 且不参与解析（旧账保留），整批异常整体回滚 | `app/modules/m8_responsibility/service.py` | `tests/test_responsibility.py::test_failed_change_keeps_old_responsibility` |
+| TRAP-34 | 重跑/续跑重复迁移或重复登记 | 同一变更被多次生效，责任版本漂移 | 迁移器只挑 pending；change_id 由内容哈希派生，同内容幂等；责任版本纳入批次键 | `app/store.py` `app/manifest.py` | `tests/test_responsibility.py::test_migration_is_idempotent` |
 
 补充的不变量与端到端：
 
@@ -51,6 +56,8 @@
 - 反例：`tests/test_reach.py::test_self_loop_is_cycle_not_hop_limit`（自环算成环，不算链过长）
 - 反例：`tests/test_catalog.py::test_naive_utf8_decode_fails_on_site_b`（朴素 utf-8 硬解直接抛错）
 - 端到端：`tests/test_e2e.py::test_end_to_end_from_sample_site`（样例站 → 缺陷 CSV → 运行清单）
+- 责任账：`tests/test_responsibility.py::test_old_ledger_frozen_new_observations_follow`（旧账冻结、新账归新站、同址不拆、新批次号）
+- 责任账守恒：`tests/test_responsibility.py::test_responsibility_breakdown_moves_findings`（来源站与责任站两视角总量相等，缺陷总数不变）
 
 ## 对账规则
 

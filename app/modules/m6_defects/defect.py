@@ -17,6 +17,10 @@ def build_defects(run: dict, settings=None) -> list[dict]:
         out.append({
             "defect_no": f"DF-{index:04d}",
             "site": row["site"],
+            "responsible_site": row.get("responsible_site", row["site"]),
+            "responsibility_basis": row.get("responsibility_basis", "host"),
+            "responsibility_ref": row.get("responsibility_ref", ""),
+            "responsibility_change": row.get("responsibility_change", ""),
             "category": row["category"],
             "label": reasons.label(row["category"]),
             "url": row["url"],
@@ -44,7 +48,11 @@ def severity_of(category: str) -> str:
 def summary(defects: list[dict]) -> dict:
     by_category: dict[str, int] = {}
     by_site: dict[str, int] = {}
+    by_responsible: dict[str, int] = {}
     for row in defects:
         by_category[row["category"]] = by_category.get(row["category"], 0) + 1
         by_site[row["site"]] = by_site.get(row["site"], 0) + 1
-    return {"total": len(defects), "by_category": by_category, "by_site": by_site}
+        resp = row.get("responsible_site", row["site"])
+        by_responsible[resp] = by_responsible.get(resp, 0) + 1
+    return {"total": len(defects), "by_category": by_category,
+            "by_site": by_site, "by_responsible_site": by_responsible}

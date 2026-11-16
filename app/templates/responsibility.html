@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}地址责任账 · 目录对账{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>地址责任账</h1>
+  <span class="amount">责任版本 {{ version }} · {{ data.summary.total }} 条变更</span>
+</div>
+
+<section class="panel">
+  <header><h2>登记责任变更</h2><span>按地址保存带生效时点的责任链，同址不拆账</span></header>
+  <div class="body">
+    <form id="resp-form" class="resp-form">
+      <label>地址（规范化后保存比较键）
+        <input type="text" name="url" required placeholder="http://www.hz.gov.cn/site-a/notice/n-2024-001" size="52">
+      </label>
+      <label>接管站
+        <select name="to_site" required>
+          {% for item in sites %}<option value="{{ item.code }}">{{ item.name }}（{{ item.code }}）</option>{% endfor %}
+        </select>
+      </label>
+      <label>生效时点（UTC）
+        <input type="text" name="effective_at" required placeholder="2026-12-01T00:00:00Z" size="22">
+      </label>
+      <label>变更依据（公文号/移交单）
+        <input type="text" name="basis" placeholder="河政办移交〔2026〕12 号" size="26">
+      </label>
+      <button class="primary" type="submit">登记为待生效</button>
+    </form>
+    <div id="resp-notice" class="notice" hidden></div>
+    <p class="empty" style="margin-top:8px">
+      登记后为「待生效」；点「执行到期迁移」或下次巡检启动时，到生效时点的变更才生效。
+      切换失败的变更保留旧账，不会改写历史缺陷。
+    </p>
+    <div class="filters">
+      <button id="apply-btn" type="button">执行到期迁移</button>
+      <button id="resolve-btn" type="button">时点归属试算</button>
+      <span id="apply-status" class="tag">就绪</span>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <header>
+    <h2>变更链</h2>
+    <span>
+      待生效 {{ data.summary.by_status.pending }} ·
+      已生效 {{ data.summary.by_status.active }} ·
+      切换失败 {{ data.summary.by_status.failed }}
+    </span>
+  </header>
+  <div class="body scroll">
+    <table class="grid" id="resp-table">
+      <thead>
+        <tr>
+          <th>变更号</th><th>地址（比较键）</th><th>来源站</th><th>接管站</th>
+          <th>生效时点</th><th>依据</th><th>状态</th><th>迁移时间</th><th>失败原因</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.change_id }}</td>
+          <td class="addr wrap" title="{{ row.url_key }}">{{ row.url_key }}</td>
+          <td>{{ row.from_site }}</td>
+          <td>{{ row.to_site }}</td>
+          <td>{{ row.effective_at | localts }}</td>
+          <td class="wrap">{{ row.basis or "—" }}</td>
+          <td><span class="tag {{ 'ok' if row.status == 'active' else ('bad' if row.status == 'failed' else 'warn') }}">
+            {{ {"pending": "待生效", "active": "已生效", "failed": "切换失败"}.get(row.status, row.status) }}
+          </span></td>
+          <td>{{ (row.applied_at | localts) if row.applied_at else "—" }}</td>
+          <td class="wrap">{{ row.failure_reason or "—" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9" class="empty">还没有责任变更。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/responsibility.js" defer></script>{% endblock %}

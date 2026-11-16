@@ -22,8 +22,15 @@
       <option value="{{ code }}" {{ 'selected' if code == category else '' }}>{{ label }}</option>
       {% endfor %}
     </select>
+    <label for="responsible_site">责任站</label>
+    <select id="responsible_site" name="responsible_site" onchange="this.form.submit()">
+      <option value="">全部</option>
+      {% for item in sites %}
+      <option value="{{ item.code }}" {{ 'selected' if item.code == responsible_site else '' }}>{{ item.name }}</option>
+      {% endfor %}
+    </select>
   </form>
-  <a class="btn" href="/api/defects.csv?site={{ site }}&category={{ category }}">导出 CSV</a>
+  <a class="btn" href="/api/defects.csv?site={{ site }}&category={{ category }}&responsible_site={{ responsible_site }}">导出 CSV</a>
   <a class="btn" href="/api/export/manifest.json">运行清单</a>
   <button type="button" id="print-btn">打印</button>
 </section>
@@ -35,7 +42,9 @@
     <div class="head">
       <span class="no">{{ row.defect_no }}</span>
       <span class="tag {{ 'bad' if row.category in ('CATALOG_DEAD', 'ONLY_IN_SITEMAP_DEAD') else 'warn' }}">{{ row.label }}</span>
-      <span class="tag">{{ row.site }}</span>
+      <span class="tag">来源 {{ row.site }}</span>
+      <span class="tag solid">责任 {{ row.responsible_site or row.site }}</span>
+      {% if row.responsibility_change %}<span class="tag info">移交 {{ row.responsibility_change }}</span>{% endif %}
       <span class="tag info">状态 {{ row.status }}</span>
       <span class="tag info">跳转 {{ row.hop_count }}</span>
       <span class="tag info">目录 {{ row.in_catalog }} · 收录 {{ row.in_sitemap }}</span>

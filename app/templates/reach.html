@@ -34,7 +34,7 @@
     <table class="grid" id="reach-table">
       <thead>
         <tr>
-          <th>站点</th><th>分类</th><th class="num">状态</th><th class="num">跳转</th>
+          <th>来源站</th><th>责任站</th><th>分类</th><th class="num">状态</th><th class="num">跳转</th>
           <th class="num">目录</th><th class="num">收录</th><th>规范地址</th><th>末态地址</th><th>原因码</th>
         </tr>
       </thead>
@@ -42,6 +42,7 @@
       {% for row in rows %}
         <tr>
           <td>{{ row.site }}</td>
+          <td>{{ row.responsible_site or row.site }}{% if row.responsibility_change %}<br><span class="tag info">{{ row.responsibility_change }}</span>{% endif %}</td>
           <td>
             <span class="tag {{ 'ok' if row.category == 'OK' else ('bad' if row.category in ('CATALOG_DEAD', 'ONLY_IN_SITEMAP_DEAD') else 'warn') }}">
               {{ row.category | category }}

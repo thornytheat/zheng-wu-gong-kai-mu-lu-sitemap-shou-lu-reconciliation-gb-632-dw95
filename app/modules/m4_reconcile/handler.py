@@ -17,6 +17,8 @@ def _payload(ctx: Ctx, run_id: str | None) -> dict:
             "accounts": run.get("accounts", {}),
             "crosstab": run.get("crosstab", {}),
             "by_site": run.get("by_site", []),
+            "by_responsible_site": run.get("by_responsible_site", []),
+            "responsibility": run.get("responsibility", {}),
             "explain": run.get("explain", []),
             "defects": run.get("defects", [])}
 
@@ -32,4 +34,6 @@ def page_reconcile(request: Request, run_id: str | None = None):
     data = _payload(ctx, run_id)
     return render(request, "reconcile.html", active="reconcile", data=data,
                   accounts=data["accounts"], crosstab=data["crosstab"],
-                  by_site=data["by_site"], explain=data["explain"])
+                  by_site=data["by_site"],
+                  by_responsible_site=data["by_responsible_site"],
+                  explain=data["explain"])

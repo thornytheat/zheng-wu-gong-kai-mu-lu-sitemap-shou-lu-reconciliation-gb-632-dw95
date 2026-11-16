@@ -74,7 +74,11 @@ def snapshot(run: dict, note: str = "") -> dict:
         item = {
             "key": key,
             "url": probe_row.get("url") or key,
-            "site": probe_row.get("site") or "",
+            # 责任站取批次冻结的责任快照；来源站保留在 source_site，跨季度趋势按责任站归集
+            "site": probe_row.get("responsible_site") or probe_row.get("site") or "",
+            "source_site": probe_row.get("site") or "",
+            "responsibility_basis": probe_row.get("responsibility_basis", "host"),
+            "responsibility_ref": probe_row.get("responsibility_ref", ""),
             "status": int(probe_row.get("status") or 0),
             "hop_count": int(probe_row.get("hop_count") or 0),
             "category": probe_row.get("category") or "",

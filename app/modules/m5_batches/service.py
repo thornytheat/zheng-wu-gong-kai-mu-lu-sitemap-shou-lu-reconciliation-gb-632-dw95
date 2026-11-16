@@ -14,6 +14,7 @@ from ..m2_url import service as url_service
 from ..m3_reach import service as reach_service
 from ..m4_reconcile import service as reconcile_service
 from ..m6_defects import service as defect_service
+from ..m8_responsibility import service as responsibility_service
 from . import history, state
 
 
@@ -41,17 +42,24 @@ def run(settings, store, mode: str = "full", stop_after: str | None = None,
 def full(settings, store, stop: str | None, sites: list[str] | None) -> dict:
     started_at = manifest.now_utc()
     clock = time.monotonic()
+    # 先迁移到期责任变更：成功的置 active，失败的置 failed 且不参与归属，旧账保留。
+    # 迁移器只处理 pending，重跑/续跑不会重复迁移。
+    applied = responsibility_service.apply_pending(store, as_of=started_at)
     fetcher = fetch_mod.make_fetcher(settings)
     crawl = crawl_service.crawl_stage(settings, fetcher, sites)
     digest = manifest.digest_of(crawl["resources"])
-    key = manifest.batch_key(crawl["sites"], digest, settings.rule_version)
+    prepared = url_service.prepare(crawl["catalog"], crawl["sitemap"])
+    # 责任快照按批次开始时间解析一次，冻结进 run；历史批次事后不再重算。
+    responsibility = responsibility_service.snapshot_for_run(
+        store, [slot["key"] for slot in prepared["keys"]], started_at)
+    key = manifest.batch_key(crawl["sites"], digest, settings.rule_version,
+                             responsibility["version"])
     run_id = manifest.run_id_for(key)
 
     existing = store.find_by_batch_key(key)
     if existing is not None and existing.get("status") == "done" and stop is None:
         return _payload(existing, reused=True, note="REPLAY_REUSED")
 
-    prepared = url_service.prepare(crawl["catalog"], crawl["sitemap"])
     stages = [crawl["stage"]]
     probes: list[dict] = []
     reconciled: dict = {}
@@ -59,7 +67,7 @@ def full(settings, store, stop: str | None, sites: list[str] | None) -> dict:
         done = ["crawl"]
         status = "partial"
     else:
-        probed = reach_service.probe_stage(settings, fetcher, prepared)
+        probed = reach_service.probe_stage(settings, fetcher, prepared, responsibility)
         probes = probed["rows"]
         stages.append(probed["stage"])
         if stop == "probe":
@@ -102,7 +110,10 @@ def full(settings, store, stop: str | None, sites: list[str] | None) -> dict:
         "totals": accounts,
         "crosstab": reconciled.get("crosstab", {}),
         "by_site": reconciled.get("by_site", []),
+        "by_responsible_site": reconciled.get("by_responsible_site", []),
         "explain": reconciled.get("explain", []),
+        "responsibility": responsibility,
+        "responsibility_applied": applied,
         "replay": {"reused": False, "at": started_at, "of": None},
     }
     _finish(result)
@@ -129,7 +140,9 @@ def resume(settings, store, resume_of: str | None, stop: str | None) -> dict:
     fetcher = fetch_mod.make_fetcher(settings)
 
     if "probe" not in done:
-        probed = reach_service.probe_stage(settings, fetcher, prepared)
+        # 续跑复用本批次开始时冻结的责任快照，不重新迁移/解析，保证同批责任版本一致。
+        probed = reach_service.probe_stage(settings, fetcher, prepared,
+                                           result.get("responsibility"))
         probes = probed["rows"]
         stages.append(probed["stage"])
         done.append("probe")
@@ -165,6 +178,8 @@ def resume(settings, store, resume_of: str | None, stop: str | None) -> dict:
         "totals": accounts,
         "crosstab": reconciled.get("crosstab", result.get("crosstab", {})),
         "by_site": reconciled.get("by_site", result.get("by_site", [])),
+        "by_responsible_site": reconciled.get(
+            "by_responsible_site", result.get("by_responsible_site", [])),
         "explain": reconciled.get("explain", result.get("explain", [])),
         "replay": {"reused": False, "at": manifest.now_utc(), "of": resume_of},
     })

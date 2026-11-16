@@ -8,8 +8,8 @@ from __future__ import annotations
 import csv
 import io
 
-COLUMNS = ("缺陷号", "站点", "分类", "严重度", "地址", "状态码", "跳转次数",
-           "目录出现", "收录出现", "原因码", "原始写法")
+COLUMNS = ("缺陷号", "站点", "责任站", "责任依据", "分类", "严重度", "地址", "状态码",
+           "跳转次数", "目录出现", "收录出现", "原因码", "原始写法")
 
 QUARANTINE_COLUMNS = ("站点", "来源", "行号", "原因码", "原因", "级别", "原文")
 
@@ -22,7 +22,11 @@ def defects_csv(defects: list[dict], severity_of) -> str:
     writer.writerow(COLUMNS)
     for row in defects:
         writer.writerow([
-            row["defect_no"], row["site"], row["label"],
+            row["defect_no"], row["site"],
+            row.get("responsible_site", row["site"]),
+            ("移交变更 " + row["responsibility_change"]) if row.get("responsibility_change")
+            else "主机清单",
+            row["label"],
             severity_of(row["category"]), row["url"], row["status"],
             row["hop_count"], row["in_catalog"], row["in_sitemap"],
             row["reason"] or "—",

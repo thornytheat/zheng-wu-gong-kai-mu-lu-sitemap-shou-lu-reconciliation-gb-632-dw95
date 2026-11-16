@@ -123,3 +123,43 @@
 
 回归清单 = `new_dead` + `new_redirect` + `still_dead` + `improved` + `basis`。
 `added` / `removed` 不计入回归；`basis` 需人工确认补全基准后再决定归属。
+
+## 8 地址责任账（M8）
+
+责任变更表 `responsibility_changes`，一个地址一条带生效时点的链，同址不拆账：
+
+| 字段 | 规则 |
+|---|---|
+| `change_id` | `rc-` + 内容（地址+来源站+接管站+生效时点+依据）sha256 前 12 位；同内容同号 |
+| `url_key` | 规范化比较键，与巡检同一把键 |
+| `from_site` / `to_site` | 来源站 / 接管站，必须在站点清单内，且不允许相同 |
+| `effective_at` | UTC 秒级 `YYYY-MM-DDTHH:MM:SSZ`，字符串序比较 |
+| `basis` | 变更依据（公文号/移交单），随责任快照可追溯 |
+| `status` | `pending` 待生效 / `active` 已生效 / `failed` 切换失败 |
+| 唯一约束 | `(url_key, effective_at)` 唯一；同时点重复登记报 `E_RESP_DUP_TIME` |
+
+时点归属解析（`m8_responsibility/ledger.py::resolve`）：
+
+- 只取 `active` 且 `effective_at <= as_of` 的变更，选生效时点最大（再同点取 `change_id` 最大）；
+- 命中 → 责任站 = `to_site`，依据类型 `transfer`，引用 `change_id`；
+- 未命中或只有 `pending`/`failed` → 回退主机归属 `scope.site_of`，依据类型 `host`；
+- 地址不在站点清单内 → 400（`E_RESP_OFFSITE` / `E_BAD_RESP_URL`）。
+
+迁移器 `apply_pending(as_of)`：
+
+- 只处理 `status=pending` 且到期的行；`active`/`failed` 永不再处理（重跑/续跑不重复迁移）；
+- 单条校验失败置 `failed` 写 `failure_reason`，解析不命中它，旧账保留；
+- 整批在一个 SQLite 事务里，任一条抛错整体回滚，无半生效。
+
+责任快照与批次键：
+
+| 项 | 规则 |
+|---|---|
+| 责任版本 | `rv-` + 全部 `active` 变更排序后 sha256 前 12 位；无变更为 `none` |
+| 批次键 | `sha256(站点集合 + input_digest + rule_version + 责任版本)` |
+| 快照时点 | 批次 `started_at`；责任站解析一次冻结进 run payload，历史批次不重算 |
+| 缺陷字段 | `site` 来源站（原语义不变）、`responsible_site` 责任站、`responsibility_basis`（host/transfer）、`responsibility_change`（rc 号） |
+
+旧账只读：历史批次缺陷行冻结在发布时责任站；责任账事后变化只影响之后的新批次。
+页面、缺陷 CSV、运行清单、监测快照全部从同一份 run 责任快照读数，不各自重算。
+缺陷 CSV 在「站点」后追加「责任站」「责任依据」两列，末列仍为「原始写法」。

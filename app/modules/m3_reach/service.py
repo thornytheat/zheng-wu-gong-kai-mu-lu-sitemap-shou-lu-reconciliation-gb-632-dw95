@@ -11,12 +11,20 @@ from ... import manifest, reasons
 from . import classify, probe
 
 
-def probe_stage(settings, fetcher, prepared: dict) -> dict:
+def probe_stage(settings, fetcher, prepared: dict, responsibility: dict | None = None) -> dict:
+    """responsibility: M8 责任快照 {key: {site, basis_type, ref, ...}}，按批次时点冻结。
+
+    传了就给每条观测打责任站；不传（旧调用/单测）时责任站回退来源站，
+    保证责任账是叠加能力，不改写既有探测契约。
+    """
     started = time.monotonic()
     rows: list[dict] = []
     failures = 0
+    resp_index = (responsibility or {}).get("responsibilities") or responsibility or {}
     for slot in prepared["keys"]:
         result = probe.probe(fetcher, slot["url"], settings.max_hops)
+        resp = resp_index.get(slot["key"]) or {}
+        responsible_site = resp.get("site") or slot["site"]
         obs = classify.Observation(
             key=slot["key"], site=slot["site"], url=slot["url"],
             in_catalog=len(slot["catalog"]), in_sitemap=len(slot["sitemap"]),
@@ -27,6 +35,10 @@ def probe_stage(settings, fetcher, prepared: dict) -> dict:
             failures += 1
         rows.append({
             "key": slot["key"], "site": slot["site"], "url": slot["url"],
+            "responsible_site": responsible_site,
+            "responsibility_basis": resp.get("basis_type", "host"),
+            "responsibility_ref": resp.get("ref", ""),
+            "responsibility_change": resp.get("change_id", ""),
             "in_catalog": obs.in_catalog, "in_sitemap": obs.in_sitemap,
             "status": result.status, "final_url": result.final_url,
             "hops": result.hops, "hop_count": result.hop_count,

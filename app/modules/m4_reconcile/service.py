@@ -23,11 +23,13 @@ def reconcile_stage(keys: list[dict], probes: list[dict], crawl: dict) -> dict:
     accounts = accounts_only(keys, probes)
     table = compare.crosstab(probes)
     sites = compare.site_breakdown(probes)
+    responsible = compare.responsibility_breakdown(probes)
     elapsed = int((time.monotonic() - started) * 1000)
     status = "done" if accounts["all_balanced"] else "failed"
     note = totals.coverage_note(accounts)
     stage = manifest.stage("reconcile", accounts["probed"], accounts["findings_total"],
                            accounts["dead"], status, elapsed, note)
     return {"accounts": accounts, "crosstab": table, "by_site": sites,
+            "by_responsible_site": responsible,
             "explain": compare.category_explain(), "stage": stage,
             "note": note, "all_balanced": accounts["all_balanced"]}
